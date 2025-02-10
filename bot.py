@@ -16,14 +16,14 @@ subscriber = [
     '6590816421', 
     '6590816421', 
     '6590816421', 
-    '6590816421'
+    '7222795580'
 ]
 
 @bot.message_handler(commands=["start"])
 def start(message):
     """Handler for /start command"""
     if str(message.chat.id) not in subscriber:
-        bot.reply_to(message, "❌ Only For authorized users! Contact Admin @Nonsecularmuslim")
+        bot.reply_to(message, "❌ Only For authorized users! Contact Admin @lurhe")
         return
     bot.reply_to(message, "<b>Welcome To Mash  CC Checker\n Please send the Combo For check . \n\n Must Join @INFO_ALEN\nDeveloped By @Nonsecularmuslim </b>")
 
@@ -80,7 +80,7 @@ def main(message):
                 # Check for stop signal
                 if os.path.exists("stop.stop"):
                     bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg, 
-                                          text="⏹️ Processing Stopped! \nBot By: @Nonsecularmuslim")
+                                          text="⏹️ Processing Stopped! \nBot By: @lurhe)
                     os.remove("stop.stop")
                     return
 
@@ -125,7 +125,7 @@ def main(message):
                 )
 
                 bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg, 
-                                      text=f"🔄 Processing Cards...\nPowered by @Nonsecularmuslim | Credit: @Nonsecularmuslim", 
+                                      text=f"🔄 Processing Cards...\nPowered by @lurhe | Credit: @PhiloBots", 
                                       reply_markup=keyboard)
 
                 # Send individual card details if approved
@@ -137,8 +137,8 @@ def main(message):
 🔹 **Country**: {country} {country_emoji}
 🔹 **Bank**: {bank}
 🔹 **Bank URL**: {bank_url}
-🔹 **Checked By**: @Nonsecularmuslim
-🔹 **Credit**: @Nonsecularmuslim
+🔹 **Checked By**: @lurhe
+🔹 **Credit**: @PhiloBots
 """
                     bot.reply_to(message, details, parse_mode="Markdown")
 
