@@ -2,7 +2,7 @@ import requests
 import telebot
 import time
 from telebot import types
-from gatet import Tele  # Ensure this module is correctly installed or replace with the proper one
+from gate import Tele  # Ensure this module is correctly installed or replace with the proper one
 import os
 
 # Bot token and initialization
