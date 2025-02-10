@@ -4,27 +4,30 @@ import time
 import os
 import json
 from telebot import types
+from dotenv import load_dotenv
 from gate import Tele  # Ensure this module is correctly implemented
 
-# Load bot token securely
+# Load environment variables
+load_dotenv()
 TOKEN = os.getenv("BOT_TOKEN")
+
 if not TOKEN:
-    raise ValueError("BOT_TOKEN is missing. Set it as an environment variable.")
+    raise ValueError("❌ BOT_TOKEN is missing. Set it in the .env file.")
 
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 
-# Load subscribers from a file for persistence
+# File to store authorized users
 SUBSCRIBER_FILE = "subscribers.json"
 
 def load_subscribers():
-    """Load authorized user IDs from a JSON file."""
+    """Load authorized users from a JSON file"""
     if os.path.exists(SUBSCRIBER_FILE):
         with open(SUBSCRIBER_FILE, "r") as file:
             return json.load(file)
-    return ["7222795580"]  # Default admin users
+    return ["6590816421", "7222795580"]  # Default admin users
 
 def save_subscribers(subscribers):
-    """Save subscribers to a JSON file."""
+    """Save subscribers to a JSON file"""
     with open(SUBSCRIBER_FILE, "w") as file:
         json.dump(subscribers, file)
 
