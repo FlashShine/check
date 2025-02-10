@@ -25,7 +25,7 @@ def start(message):
     if str(message.chat.id) not in subscriber:
         bot.reply_to(message, "❌ Only For authorized users! Contact Admin @lurhe")
         return
-    bot.reply_to(message, "<b>Welcome To Mash  CC Checker\n Please send the Combo For check . \n\n Must Join @INFO_ALEN\nDeveloped By @Nonsecularmuslim </b>")
+    bot.reply_to(message, "<b>Welcome To Mash  CC Checker\n Please send the Combo For check . \n\n Must Join @PhiloBots\nDeveloped By @PhiloBots </b>")
 
 @bot.message_handler(commands=["add"])
 def add_user(message):
