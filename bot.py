@@ -11,7 +11,7 @@ from stripe_charge import process_payment as stripe_payment  # Import Stripe cha
 from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
 # Telegram Bot Configuration
-TOKEN = '8099253215:AAFdkFwiqCxX72M7dz7AVbVUDXQzc5khWJE'  # Replace with actual bot token
+TOKEN = '80992532X72M7dz7AVbVUDXQzc5khWJE'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 ALLOWED_USERS = ['7222795580']  # List of allowed user IDs
 CREDIT_FILE = 'user_credits.json'  # Credit System File
