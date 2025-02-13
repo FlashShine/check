@@ -2,6 +2,5 @@ httpx
 telebot
 requests
 asyncio
-re
 json
 uuid
