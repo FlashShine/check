@@ -11,7 +11,7 @@ from stripe_charge import process_payment as stripe_payment  # Import Stripe cha
 from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
 # Telegram Bot Configuration
-TOKEN = '8099253215:AAEifkGFCFTtAmO2ofVVKu3cvLBHp1z-Ypk'  # Replace with actual bot token
+TOKEN = '8099253215:AAHb9qDiYGQovNKOa3xdyaSVZhdwZH_t6v0'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 ALLOWED_USERS = ['7222795580']  # List of allowed user IDs
 CREDIT_FILE = 'user_credits.json'  # Credit System File
@@ -52,66 +52,63 @@ def add_credits(user_id, amount):
 def check_card_braintree(message):
     user_id = message.chat.id
     if str(user_id) not in ALLOWED_USERS:
-        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        bot.reply_to(message, "🚫 Access Denied! Contact the admin to purchase access.")
         return
 
     if not deduct_credits(user_id):
-        bot.reply_to(message, "ðŸš« Insufficient credits! Purchase more to continue.")
+        bot.reply_to(message, "🚫 Insufficient credits! Purchase more to continue.")
         return
 
     try:
         cc_input = message.text.split(maxsplit=1)[1].strip()
         if not re.match(r'\d{13,19}\|\d{1,2}\|\d{2,4}\|\d{3,4}', cc_input):
-            bot.reply_to(message, "âŒ Invalid CC format. Use: `/b3 cc|mm|yy|cvv`")
+            bot.reply_to(message, "❌ Invalid CC format. Use: `/b3 cc|mm|yy|cvv`")
             return
 
-        checking_msg = bot.reply_to(message, "ðŸ” Checking Card via Braintree... Please wait.")
+        checking_msg = bot.reply_to(message, "🔍 Checking Card via Braintree... Please wait.")
 
         # Call Full Checker (Braintree)
         result = asyncio.run(run_checker([cc_input]))[0]
 
-        bot.edit_message_text(chat_id=message.chat.id, message_id=checking_msg.message_id, text=f"ðŸ’³ **Braintree Card Check Result:**
-{result}")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=checking_msg.message_id, text=f"💳 **Braintree Card Check Result:** {result}")
     
     except IndexError:
-        bot.reply_to(message, "âŒ Please provide a card in the format: `/b3 cc|mm|yy|cvv`")
+        bot.reply_to(message, "❌ Please provide a card in the format: `/b3 cc|mm|yy|cvv`")
 
 # Command to Check a Single Credit Card using Stripe
 @bot.message_handler(commands=["s3"])
 def check_card_stripe(message):
     user_id = message.chat.id
     if str(user_id) not in ALLOWED_USERS:
-        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        bot.reply_to(message, "🚫 Access Denied! Contact the admin to purchase access.")
         return
 
     if not deduct_credits(user_id):
-        bot.reply_to(message, "ðŸš« Insufficient credits! Purchase more to continue.")
+        bot.reply_to(message, "🚫 Insufficient credits! Purchase more to continue.")
         return
 
-    processing_msg = bot.reply_to(message, "ðŸ” Checking Card via Stripe... Please wait.")
+    processing_msg = bot.reply_to(message, "🔍 Checking Card via Stripe... Please wait.")
     
     result = asyncio.run(stripe_payment())
 
-    bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"ðŸ’³ **Stripe Card Check Result:**
-{result}")
+    bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"💳 **Stripe Card Check Result:** {result}")
 
 # Command to Process a Payment via Braintree
 @bot.message_handler(commands=["chk"])
 def process_payment_braintree(message):
     user_id = message.chat.id
     if str(user_id) not in ALLOWED_USERS:
-        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        bot.reply_to(message, "🚫 Access Denied! Contact the admin to purchase access.")
         return
 
-    processing_msg = bot.reply_to(message, "âš¡ Processing Payment via Braintree... Please wait.")
+    processing_msg = bot.reply_to(message, "⚡ Processing Payment via Braintree... Please wait.")
 
     auth_token = asyncio.run(get_braintree_auth())
 
     if auth_token:
-        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"ðŸ’³ **Braintree Payment Authorized!**
-Token: `{auth_token}`")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"💳 **Braintree Payment Authorized!**\nToken: `{auth_token}`")
     else:
-        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"âŒ **Braintree Payment Authorization Failed!**")
+        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"❌ **Braintree Payment Authorization Failed!**")
 
 # Command to Redeem a Code for Credits
 @bot.message_handler(commands=["redeem"])
@@ -120,30 +117,25 @@ def redeem_code(message):
     try:
         code = message.text.split()[1]
     except IndexError:
-        bot.reply_to(message, "âŒ Please provide a valid redeem code: `/redeem CODE`")
+        bot.reply_to(message, "❌ Please provide a valid redeem code: `/redeem CODE`")
         return
 
     if code == "FREE100":  # Example fixed redeem code
         add_credits(user_id, 100)
-        bot.reply_to(message, f"âœ… Redeemed 100 credits! Your new balance: **{get_user_credits(user_id)}**")
+        bot.reply_to(message, f"✅ Redeemed 100 credits! Your new balance: **{get_user_credits(user_id)}**")
     else:
-        bot.reply_to(message, "âŒ Invalid redeem code. Try again.")
+        bot.reply_to(message, "❌ Invalid redeem code. Try again.")
 
 # Start Command
 @bot.message_handler(commands=["start"])
 def start(message):
     user_id = message.chat.id
-    bot.reply_to(message, f"ðŸ‘‹ Welcome! You have **{get_user_credits(user_id)}** credits.
-
-"
-                          "ðŸ’³ Use `/b3` to check a card via **Braintree**.
-"
-                          "ðŸ’³ Use `/s3` to check a card via **Stripe**.
-"
-                          "ðŸ’° Use `/chk` to process a **Braintree** payment.
-"
-                          "ðŸŽŸï¸ Use `/redeem CODE` to claim free credits.")
+    bot.reply_to(message, f"👋 Welcome! You have **{get_user_credits(user_id)}** credits.\n\n"
+                          "💳 Use `/b3` to check a card via **Braintree**.\n"
+                          "💳 Use `/s3` to check a card via **Stripe**.\n"
+                          "💰 Use `/chk` to process a **Braintree** payment.\n"
+                          "🎟️ Use `/redeem CODE` to claim free credits.")
 
 # Run Bot
-print("ðŸš€ Bot is running...")
+print("🚀 Bot is running...")
 bot.polling()
