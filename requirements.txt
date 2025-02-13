@@ -1,6 +1,5 @@
-httpx
-telebot
-requests
-asyncio
-json
-uuid
+httpx==0.28.1
+pyTelegramBotAPI==4.15.3
+requests==2.32.3
+asyncio==3.4.3
+uuid==1.30
