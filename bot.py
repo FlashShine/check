@@ -11,7 +11,7 @@ from stripe_charge import process_payment as stripe_payment  # Import Stripe cha
 from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
 # Telegram Bot Configuration
-TOKEN = '8099253215:AAHJuwiaNNujUVN6sefQslaTrmi3NCPxI8E'  # Replace with actual bot token
+TOKEN = '8099253215:AAE-iHATJVHbQwTCbpo364MjskuzO9Ntr6I'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
 ALLOWED_USERS = ['7297683223']  # List of allowed user IDs (Admins)
 CREDIT_FILE = 'user_credits.json'  # Credit System File
@@ -32,45 +32,81 @@ def get_user_credits(user_id):
     credits = load_credits()
     return credits.get(str(user_id), 0)
 
+def deduct_credits(user_id, amount=1):
+    credits = load_credits()
+    user_str_id = str(user_id)
+    if credits.get(user_str_id, 0) >= amount:
+        credits[user_str_id] -= amount
+        save_credits(credits)
+        return True
+    return False
+
 def add_credits(user_id, amount):
     credits = load_credits()
     user_str_id = str(user_id)
     credits[user_str_id] = credits.get(user_str_id, 0) + amount
     save_credits(credits)
 
-# Command to Add Credits (Admin Only)
-@bot.message_handler(commands=["addcredits"])
-def add_credits_command(message):
+# Formatting function for responses
+def format_card_response(cc, result, card_info, country, bank, response_time):
+    return (f"✅ **Approved!**\n"
+            f"💳 **CC:** `{cc}`\n\n"
+            f"🎉 **Response:** {result}\n"
+            f"ℹ **Info:** {card_info}\n"
+            f"🌍 **Country:** {country}\n"
+            f"🏦 **Bank:** {bank}\n"
+            f"⏳ **Time:** {response_time}s")
+
+# Command to Check a Single Credit Card using Braintree
+@bot.message_handler(commands=["b3"])
+def check_card_braintree(message):
     user_id = message.chat.id
-    if str(user_id) not in ALLOWED_USERS:
-        bot.reply_to(message, "🚫 You don't have permission to add credits.")
+    if not deduct_credits(user_id):
+        bot.reply_to(message, "🚫 Insufficient credits! Purchase more to continue.")
         return
 
     try:
-        _, target_user, amount = message.text.split()
-        amount = int(amount)
-    except (ValueError, IndexError):
-        bot.reply_to(message, "❌ Usage: `/addcredits user_id amount`")
-        return
+        cc_input = message.text.split(maxsplit=1)[1].strip()
+        if not re.match(r'\d{13,19}\|\d{1,2}\|\d{2,4}\|\d{3,4}', cc_input):
+            bot.reply_to(message, "❌ Invalid CC format. Use: `/b3 cc|mm|yy|cvv`")
+            return
 
-    add_credits(target_user, amount)
-    bot.reply_to(message, f"✅ Added {amount} credits to user {target_user}. New Balance: **{get_user_credits(target_user)}**")
+        checking_msg = bot.reply_to(message, "🔍 Checking Card via Braintree... Please wait.")
+        result = asyncio.run(run_checker([cc_input]))[0]
 
-# Command to Redeem a Code for Credits
-@bot.message_handler(commands=["redeem"])
-def redeem_code(message):
-    user_id = message.chat.id
-    try:
-        code = message.text.split()[1]
+        # Mock response details (replace with actual parsed data)
+        card_info = "516989 - CREDIT - MASTERCARD"
+        country = "INDIA 🇮🇳"
+        bank = "BANK OF INDIA"
+        response_time = "7.0"
+
+        formatted_response = format_card_response(cc_input, "Thank You For Donation 🎉", card_info, country, bank, response_time)
+        
+        bot.edit_message_text(chat_id=message.chat.id, message_id=checking_msg.message_id, text=formatted_response)
+
     except IndexError:
-        bot.reply_to(message, "❌ Please provide a valid redeem code: `/redeem CODE`")
+        bot.reply_to(message, "❌ Please provide a card in the format: `/b3 cc|mm|yy|cvv`")
+
+# Command to Check a Single Credit Card using Stripe
+@bot.message_handler(commands=["s3"])
+def check_card_stripe(message):
+    user_id = message.chat.id
+    if not deduct_credits(user_id):
+        bot.reply_to(message, "🚫 Insufficient credits! Purchase more to continue.")
         return
 
-    if code == "FREE100":  # Example fixed redeem code
-        add_credits(user_id, 100)
-        bot.reply_to(message, f"✅ Redeemed 100 credits! Your new balance: **{get_user_credits(user_id)}**")
-    else:
-        bot.reply_to(message, "❌ Invalid redeem code. Try again.")
+    processing_msg = bot.reply_to(message, "🔍 Checking Card via Stripe... Please wait.")
+    result = asyncio.run(stripe_payment())
+
+    # Mock response details (replace with actual parsed data)
+    card_info = "516989 - CREDIT - MASTERCARD"
+    country = "INDIA 🇮🇳"
+    bank = "BANK OF INDIA"
+    response_time = "7.0"
+
+    formatted_response = format_card_response("XXXX-XXXX-XXXX-XXXX", "Thank You For Donation 🎉", card_info, country, bank, response_time)
+
+    bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=formatted_response)
 
 # Start Command
 @bot.message_handler(commands=["start"])
