@@ -54,4 +54,9 @@ async def process_card(cc):
         response = await client.post('https://payments.braintree-api.com/graphql', headers=headers, json=json_data)
         response_json = response.json()
 
-    if "tokenizeCreditCard" in response_json
+    if "tokenizeCreditCard" in response_json.get("data", {}):  # Fixed missing colon
+        return f"{cc} APPROVED ✅"
+    return f"{cc} DECLINED ❌"
+
+async def run_checker(cc_list):
+    return await asyncio.gather(*(process_card(cc) for cc in cc_list))
