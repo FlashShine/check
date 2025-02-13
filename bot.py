@@ -1,185 +1,149 @@
 import requests
 import telebot
 import time
+import re
 import os
 import json
+import asyncio
 from telebot import types
-from dotenv import load_dotenv
-from gate import Tele  # Ensure this module is correctly implemented
+from full_checker import run_checker  # Import Braintree checker
+from stripe_charge import process_payment as stripe_payment  # Import Stripe charge module
+from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
-# Load environment variables
-load_dotenv()
-TOKEN = os.getenv("BOT_TOKEN")
-
-if not TOKEN:
-    raise ValueError("❌ BOT_TOKEN is missing. Set it in the .env file.")
-
+# Telegram Bot Configuration
+TOKEN = 'YOUR_BOT_TOKEN'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
+ALLOWED_USERS = ['7297683223']  # List of allowed user IDs
+CREDIT_FILE = 'user_credits.json'  # Credit System File
 
-# File to store authorized users
-SUBSCRIBER_FILE = "subscribers.json"
+# Load and Save Credits
+def load_credits():
+    try:
+        with open(CREDIT_FILE, 'r') as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
-def load_subscribers():
-    """Load authorized users from a JSON file"""
-    if os.path.exists(SUBSCRIBER_FILE):
-        with open(SUBSCRIBER_FILE, "r") as file:
-            return json.load(file)
-    return ["6590816421", "7222795580"]  # Default admin users
+def save_credits(credits):
+    with open(CREDIT_FILE, 'w') as f:
+        json.dump(credits, f, indent=4)
 
-def save_subscribers(subscribers):
-    """Save subscribers to a JSON file"""
-    with open(SUBSCRIBER_FILE, "w") as file:
-        json.dump(subscribers, file)
+def get_user_credits(user_id):
+    credits = load_credits()
+    return credits.get(str(user_id), 0)
 
-subscribers = load_subscribers()
+def deduct_credits(user_id, amount=1):
+    credits = load_credits()
+    user_str_id = str(user_id)
+    if credits.get(user_str_id, 0) >= amount:
+        credits[user_str_id] -= amount
+        save_credits(credits)
+        return True
+    return False
 
+def add_credits(user_id, amount):
+    credits = load_credits()
+    user_str_id = str(user_id)
+    credits[user_str_id] = credits.get(user_str_id, 0) + amount
+    save_credits(credits)
+
+# Command to Check a Single Credit Card using Braintree
+@bot.message_handler(commands=["b3"])
+def check_card_braintree(message):
+    user_id = message.chat.id
+    if str(user_id) not in ALLOWED_USERS:
+        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        return
+
+    if not deduct_credits(user_id):
+        bot.reply_to(message, "ðŸš« Insufficient credits! Purchase more to continue.")
+        return
+
+    try:
+        cc_input = message.text.split(maxsplit=1)[1].strip()
+        if not re.match(r'\d{13,19}\|\d{1,2}\|\d{2,4}\|\d{3,4}', cc_input):
+            bot.reply_to(message, "âŒ Invalid CC format. Use: `/b3 cc|mm|yy|cvv`")
+            return
+
+        checking_msg = bot.reply_to(message, "ðŸ” Checking Card via Braintree... Please wait.")
+
+        # Call Full Checker (Braintree)
+        result = asyncio.run(run_checker([cc_input]))[0]
+
+        bot.edit_message_text(chat_id=message.chat.id, message_id=checking_msg.message_id, text=f"ðŸ’³ **Braintree Card Check Result:**
+{result}")
+    
+    except IndexError:
+        bot.reply_to(message, "âŒ Please provide a card in the format: `/b3 cc|mm|yy|cvv`")
+
+# Command to Check a Single Credit Card using Stripe
+@bot.message_handler(commands=["s3"])
+def check_card_stripe(message):
+    user_id = message.chat.id
+    if str(user_id) not in ALLOWED_USERS:
+        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        return
+
+    if not deduct_credits(user_id):
+        bot.reply_to(message, "ðŸš« Insufficient credits! Purchase more to continue.")
+        return
+
+    processing_msg = bot.reply_to(message, "ðŸ” Checking Card via Stripe... Please wait.")
+    
+    result = asyncio.run(stripe_payment())
+
+    bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"ðŸ’³ **Stripe Card Check Result:**
+{result}")
+
+# Command to Process a Payment via Braintree
+@bot.message_handler(commands=["chk"])
+def process_payment_braintree(message):
+    user_id = message.chat.id
+    if str(user_id) not in ALLOWED_USERS:
+        bot.reply_to(message, "ðŸš« Access Denied! Contact the admin to purchase access.")
+        return
+
+    processing_msg = bot.reply_to(message, "âš¡ Processing Payment via Braintree... Please wait.")
+
+    auth_token = asyncio.run(get_braintree_auth())
+
+    if auth_token:
+        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"ðŸ’³ **Braintree Payment Authorized!**
+Token: `{auth_token}`")
+    else:
+        bot.edit_message_text(chat_id=message.chat.id, message_id=processing_msg.message_id, text=f"âŒ **Braintree Payment Authorization Failed!**")
+
+# Command to Redeem a Code for Credits
+@bot.message_handler(commands=["redeem"])
+def redeem_code(message):
+    user_id = message.chat.id
+    try:
+        code = message.text.split()[1]
+    except IndexError:
+        bot.reply_to(message, "âŒ Please provide a valid redeem code: `/redeem CODE`")
+        return
+
+    if code == "FREE100":  # Example fixed redeem code
+        add_credits(user_id, 100)
+        bot.reply_to(message, f"âœ… Redeemed 100 credits! Your new balance: **{get_user_credits(user_id)}**")
+    else:
+        bot.reply_to(message, "âŒ Invalid redeem code. Try again.")
+
+# Start Command
 @bot.message_handler(commands=["start"])
 def start(message):
-    """Handle /start command"""
-    if str(message.chat.id) not in subscribers:
-        bot.reply_to(message, "❌ Only authorized users! Contact Admin @lurhe")
-        return
-    bot.reply_to(message, "<b>Welcome to Mash CC Checker!\nPlease send your Combo for checking.\n\nJoin @lurhe\nDeveloped By @lurhe</b>")
+    user_id = message.chat.id
+    bot.reply_to(message, f"ðŸ‘‹ Welcome! You have **{get_user_credits(user_id)}** credits.
 
-@bot.message_handler(commands=["add"])
-def add_user(message):
-    """Handle /add command to add new users"""
-    if str(message.chat.id) != subscribers[0]:  
-        bot.reply_to(message, "❌ Only the Admin can use this command!")
-        return
+"
+                          "ðŸ’³ Use `/b3` to check a card via **Braintree**.
+"
+                          "ðŸ’³ Use `/s3` to check a card via **Stripe**.
+"
+                          "ðŸ’° Use `/chk` to process a **Braintree** payment.
+"
+                          "ðŸŽŸï¸ Use `/redeem CODE` to claim free credits.")
 
-    args = message.text.split()
-    if len(args) != 2 or not args[1].isdigit():
-        bot.reply_to(message, "❌ Usage: /add <user_id>")
-        return
-
-    new_user = args[1]
-    if new_user in subscribers:
-        bot.reply_to(message, "⚠️ User is already authorized!")
-    else:
-        subscribers.append(new_user)
-        save_subscribers(subscribers)
-        bot.reply_to(message, f"✅ User {new_user} added successfully!")
-
-@bot.message_handler(content_types=["document"])
-def process_file(message):
-    """Process uploaded files containing card details"""
-    if str(message.chat.id) not in subscribers:
-        bot.reply_to(message, "❌ Access Denied! Contact Admin @lurhe")
-        return
-
-    declined = approved = 0
-    processing_msg = bot.reply_to(message, "🔄 Checking Your Cards...⌛").message_id
-
-    file_info = bot.get_file(message.document.file_id)
-    file_data = bot.download_file(file_info.file_path)
-    
-    with open("combo.txt", "wb") as combo_file:
-        combo_file.write(file_data)
-
-    try:
-        with open("combo.txt", "r") as file:
-            card_lines = file.readlines()
-            total_cards = len(card_lines)
-
-            for card in card_lines:
-                if os.path.exists("stop.stop"):
-                    bot.edit_message_text(
-                        chat_id=message.chat.id, message_id=processing_msg,
-                        text="⏹️ Processing Stopped! \nBot By: @lurhe"
-                    )
-                    os.remove("stop.stop")
-                    return
-
-                # Fetch BIN details
-                bin_info = get_bin_info(card[:6])
-
-                # Process the card through gateway
-                try:
-                    response = str(Tele(card))
-                except Exception as e:
-                    print(f"Error processing card: {e}")
-                    response = "ERROR"
-
-                status, declined, approved = interpret_response(response, declined, approved)
-
-                keyboard = generate_keyboard(card.strip(), status, approved, declined, total_cards)
-                
-                bot.edit_message_text(
-                    chat_id=message.chat.id, message_id=processing_msg,
-                    text=f"🔄 Processing Cards...\nPowered by @lurhe | Credit: @lurhe", 
-                    reply_markup=keyboard
-                )
-
-                if 'success' in response:
-                    details = format_card_details(card.strip(), bin_info)
-                    bot.reply_to(message, details, parse_mode="Markdown")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-    bot.edit_message_text(
-        chat_id=message.chat.id, message_id=processing_msg,
-        text="✅ Processing Completed!\nBot By: @lurhe | Credit: @lurhe"
-    )
-
-@bot.callback_query_handler(func=lambda call: call.data == 'stop')
-def stop_callback(call):
-    """Stop processing when the user clicks the stop button"""
-    open("stop.stop", "w").close()
-    bot.answer_callback_query(call.id, "⏹️ Processing will stop soon!")
-
-def get_bin_info(bin_number):
-    """Fetch BIN information from binlist API"""
-    try:
-        response = requests.get(f'https://lookup.binlist.net/{bin_number}')
-        data = response.json()
-        return {
-            "bank": data.get('bank', {}).get('name', 'Unknown'),
-            "country": data.get('country', {}).get('name', 'Unknown'),
-            "emoji": data.get('country', {}).get('emoji', '🌍'),
-            "scheme": data.get('scheme', 'Unknown'),
-            "type": data.get('type', 'Unknown'),
-            "bank_url": data.get('bank', {}).get('url', 'N/A')
-        }
-    except:
-        return {"bank": "Unknown", "country": "Unknown", "emoji": "🌍", "scheme": "Unknown", "type": "Unknown", "bank_url": "N/A"}
-
-def interpret_response(response, declined, approved):
-    """Interpret the response from the gateway"""
-    if 'risk' in response or 'declined' in response:
-        return "❌ Declined", declined + 1, approved
-    elif 'success' in response:
-        return "✅ Approved", declined, approved + 1
-    else:
-        return "⚠️ Unknown Response", declined, approved
-
-def generate_keyboard(card, status, approved, declined, total_cards):
-    """Generate an inline keyboard for card processing updates"""
-    keyboard = types.InlineKeyboardMarkup(row_width=1)
-    keyboard.add(
-        types.InlineKeyboardButton(f"🔹 Card: {card}", callback_data='info'),
-        types.InlineKeyboardButton(f"🔹 Status: {status}", callback_data='info'),
-        types.InlineKeyboardButton(f"🔹 Approved ✅: {approved}", callback_data='info'),
-        types.InlineKeyboardButton(f"🔹 Declined ❌: {declined}", callback_data='info'),
-        types.InlineKeyboardButton(f"🔹 Total Cards 📊: {total_cards}", callback_data='info'),
-        types.InlineKeyboardButton(f"⏹ Stop", callback_data='stop')
-    )
-    return keyboard
-
-def format_card_details(card, bin_info):
-    """Format card details for sending as a message"""
-    return f"""
-🔹 **Card**: `{card}`
-🔹 **Status**: ✅ Approved
-🔹 **BIN**: {bin_info["scheme"]} - {bin_info["type"]}
-🔹 **Country**: {bin_info["country"]} {bin_info["emoji"]}
-🔹 **Bank**: {bin_info["bank"]}
-🔹 **Bank URL**: {bin_info["bank_url"]}
-🔹 **Checked By**: @lurhe
-🔹 **Credit**: @lurhe
-"""
-
-if __name__ == "__main__":
-    print("🚀 Bot Started Successfully!")
-    bot.polling()
+# Run Bot
+print("ðŸš€ Bot is running...")
+bot.polling()
