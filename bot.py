@@ -6,11 +6,14 @@ import os
 import json
 import asyncio
 from telebot import types
+from full_checker import run_checker  # Import Braintree checker
+from stripe_charge import process_payment as stripe_payment  # Import Stripe charge module
+from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
 # Telegram Bot Configuration
-TOKEN = '8099253215:AAH3LAdxp1UWWMqToytAsyUonb8vRGOPNFA'  # Replace with actual bot token
+TOKEN = '8099253215:AAHJuwiaNNujUVN6sefQslaTrmi3NCPxI8E'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
-ALLOWED_USERS = ['7222795580','7749807563']  # List of allowed user IDs (Admins)
+ALLOWED_USERS = ['7297683223']  # List of allowed user IDs (Admins)
 CREDIT_FILE = 'user_credits.json'  # Credit System File
 
 # Load and Save Credits
