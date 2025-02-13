@@ -11,10 +11,11 @@ from stripe_charge import process_payment as stripe_payment  # Import Stripe cha
 from braintree_auth import get_braintree_auth  # Import Braintree auth module
 
 # Telegram Bot Configuration
-TOKEN = '8099253215:AAE-iHATJVHbQwTCbpo364MjskuzO9Ntr6I'  # Replace with actual bot token
+TOKEN = '8099253215:AAFwlNrt1gOTRj329LCB9QTQKISyQvp11A4'  # Replace with actual bot token
 bot = telebot.TeleBot(TOKEN, parse_mode="HTML")
-ALLOWED_USERS = ['7297683223']  # List of allowed user IDs (Admins)
+ALLOWED_USERS = ['7222795580']  # List of allowed user IDs (Admins)
 CREDIT_FILE = 'user_credits.json'  # Credit System File
+DEFAULT_CREDITS = 1000  # Default starting credits for new users
 
 # Load and Save Credits
 def load_credits():
@@ -30,12 +31,16 @@ def save_credits(credits):
 
 def get_user_credits(user_id):
     credits = load_credits()
-    return credits.get(str(user_id), 0)
+    return credits.get(str(user_id), DEFAULT_CREDITS)  # Default credits for new users
 
 def deduct_credits(user_id, amount=1):
     credits = load_credits()
     user_str_id = str(user_id)
-    if credits.get(user_str_id, 0) >= amount:
+    
+    if user_str_id not in credits:
+        credits[user_str_id] = DEFAULT_CREDITS  # Give default credits if user is new
+
+    if credits[user_str_id] >= amount:
         credits[user_str_id] -= amount
         save_credits(credits)
         return True
@@ -44,7 +49,7 @@ def deduct_credits(user_id, amount=1):
 def add_credits(user_id, amount):
     credits = load_credits()
     user_str_id = str(user_id)
-    credits[user_str_id] = credits.get(user_str_id, 0) + amount
+    credits[user_str_id] = credits.get(user_str_id, DEFAULT_CREDITS) + amount  # Ensure default credits
     save_credits(credits)
 
 # Formatting function for responses
